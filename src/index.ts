@@ -1,8 +1,10 @@
 import "dotenv/config";
 import { app } from "./api.js";
 import { startMqtt, stopMqtt } from "./mqtt.js";
-import "./services/untis.js";
+import { testWakeMonitor } from "./services/untis.js";
 import { startWakeMonitorScheduler } from "./services/wakeMonitorScheuler.js";
+import { startTimetableScheduler } from "./services/timetableScheduler.js";
+
 
 const port = Number(process.env.PORT ?? 3000);
 
@@ -15,7 +17,11 @@ async function main() {
 
     await startMqtt();
 
+
+
     startWakeMonitorScheduler();
+    startTimetableScheduler();
+    testWakeMonitor();
 
     console.log(`API listening on port ${port}`);
   } catch (error) {
