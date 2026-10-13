@@ -148,54 +148,49 @@ export async function setWakeMonitor() {
 }
 
 async function getNextFirstLesson(untis: WebUntis, name: string) {
-  const now = Date.now();
+    const getFirstLesson = async (
+        timetable: Awaited<
+            ReturnType<typeof untis.timetableService.getOwnTimetableToday>
+        >,
+    ) =>
+        timetable.days[0]?.gridEntries
+            ?.sort(
+                (a, b) =>
+                    new Date(a.duration.start).getTime() -
+                    new Date(b.duration.start).getTime(),
+            )[0];
 
-  const getFirstLesson = async (
-    timetable: Awaited<
-      ReturnType<typeof untis.timetableService.getOwnTimetableToday>
-    >,
-  ) =>
-    timetable.days[0]?.gridEntries
-      ?.sort(
-        (a, b) =>
-          new Date(a.duration.start).getTime() -
-          new Date(b.duration.start).getTime(),
-      )
-      .find((lesson) => new Date(lesson.duration.start).getTime() > now);
+    const now = Date.now();
 
-  let lesson = await getFirstLesson(
-    await untis.timetableService.getOwnTimetableToday(),
-  );
-
-  if (!lesson) {
-    console.log(
-      `[Wake Monitor] No upcoming lessons found for ${name} today. Checking tomorrow's timetable.`,
+    let lesson = await getFirstLesson(
+        await untis.timetableService.getOwnTimetableToday(),
     );
 
-    const tomorrow = await untis.timetableService.getOwnTimetableTomorrow();
+    // Wenn die erste Stunde bereits vorbei ist, morgen verwenden
+    if (
+        lesson &&
+        new Date(lesson.duration.end).getTime() <= now
+    ) {
+        lesson = undefined;
+    }
 
-    lesson = tomorrow.days[0]?.gridEntries?.sort(
-      (a, b) =>
-        new Date(a.duration.start).getTime() -
-        new Date(b.duration.start).getTime(),
-    )[0];
-  }
+    if (!lesson) {
+        console.log(
+            `[Wake Monitor] First lesson unavailable for ${name} today. Checking tomorrow's timetable.`,
+        );
 
-  if (!lesson) {
-    console.log(
-      `[Wake Monitor] No lessons found for ${name} today or tomorrow.`,
-    );
-  }
+        lesson = await getFirstLesson(
+            await untis.timetableService.getOwnTimetableTomorrow(),
+        );
+    }
 
-  console.log(
-    `[Wake Monitor] ${name}: Next lesson starts at ${
-      lesson
-        ? new Date(lesson.duration.start).toLocaleString("de-DE")
-        : "not found"
-    }`,
-  );
+    if (!lesson) {
+        console.log(
+            `[Wake Monitor] No lessons found for ${name} today or tomorrow.`,
+        );
+    }
 
-  return lesson;
+    return lesson;
 }
 
 export async function fetchAllTimetables() {
